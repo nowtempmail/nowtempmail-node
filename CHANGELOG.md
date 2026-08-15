@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-15
+
+Documentation only. No code change, no API change — but the corrections matter,
+because several statements in the 0.1.1 README were wrong about the service
+rather than merely unclear.
+
+### Fixed
+
+- **The webhook signing secret cannot be read back or rotated.** The README said
+  it could be, from the developer portal. It is shown once, on the screen that
+  creates the key, and no endpoint or portal screen returns it afterwards. If it
+  is lost, the answer is a new key. The rotation guidance, including the advice
+  about events rejected during a rotation window, described something that does
+  not exist and has been removed.
+- **`ntm_test_` keys are not metered against Free today.** While the paywall is
+  off, they resolve to the launch plan like every other key. The Free pinning
+  takes effect when billing goes live.
+- **The plan table described a paywall that is currently switched off.** Every
+  account presently receives the launch plan's limits and all four gated
+  capabilities — custom addresses, reserved addresses, extended TTL and
+  webhooks — so a Free-tier reader was being told features were unavailable that
+  work right now. The table is labelled as the post-billing state, and the
+  Webhooks section says the same. Read `ntm.me()` rather than inferring a tier.
+- **There is a third ceiling, and nothing surfaces it.** A mailbox accepts 50
+  messages on Free, 200 on Starter and 1,000 on Scale. Mail past that is dropped
+  rather than rejected: no error, no header, nothing in `/v1` that distinguishes
+  a full mailbox from a quiet one. Deleting messages does not free capacity — the
+  counter is of mail received, not mail held. This is documented in the limits
+  section and, because the worker-scoped `inbox` fixture is exactly what
+  accumulates, in the Playwright section too.
+- Smaller corrections: `requestId` is carried by every error *that reached the
+  wire*, not every error; `apiKey` is a normal client option, not one of the
+  Playwright fixture-only keys; `forbidden` is reserved and emitted by no
+  endpoint; `get_code` accepts `ignoreExisting`; `read_message` truncates
+  `From`, `Subject` and body together at 2,000 characters, not the body alone;
+  and the plan table now carries exact reserved-address and TTL values.
+
+### Added
+
+- `SECURITY.md` ships in the package. A security policy that reaches only the
+  repository is no use to someone who has the tarball and has found something.
+  The README now carries the carve-out too: vulnerabilities go to
+  `contact@nowtempmail.com`, never the public feedback board.
+
+### Changed
+
+- Links to `examples/` and the contributing and security documents are absolute
+  and point at the repository, since only `SECURITY.md` is in the tarball.
+
 ## [0.1.1] - 2026-08-15
 
 Documentation fix with the code change that makes the documentation true. No API
@@ -178,6 +227,7 @@ the surface area, and the boundaries, before you depend on it.
   file that trigger mail from the same sender within the same second can still
   match each other's. Disambiguate with `from` or `subject`.
 
-[Unreleased]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/nowtempmail/nowtempmail-node/releases/tag/v0.1.0

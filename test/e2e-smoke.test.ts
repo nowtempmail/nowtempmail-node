@@ -12,6 +12,12 @@
  *
  * The CLI half is skipped when dist/ has not been built, so `vitest run` works
  * on a clean checkout; `npm run verify` builds first, so CI always runs it.
+ *
+ * That ordering is load-bearing and was not always right. `verify` used to run
+ * the tests before the build, which meant these assertions ran against the
+ * *previous* build — invisible until a version bump, at which point they failed
+ * comparing the old dist's version to the new source's. A suite that tests a
+ * build artifact has to run after the build that produces it.
  */
 
 import { execFile } from "node:child_process";

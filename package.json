@@ -1,6 +1,6 @@
 {
   "name": "nowtempmail",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Disposable mailboxes and OTP codes for your tests. Verification codes are extracted server-side, so there is no regex to write.",
   "license": "MIT",
   "author": "NowTempMail",
@@ -71,7 +71,8 @@
     "dist",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "SECURITY.md"
   ],
   "keywords": [
     "otp",
@@ -98,7 +99,7 @@
     "size": "node scripts/check-size.mjs",
     "spec:vendor": "node scripts/vendor-spec.mjs",
     "spec:drift": "node scripts/check-spec-drift.mjs",
-    "verify": "npm run typecheck && npm run test && npm run build && npm run lint:package && npm run size",
+    "verify": "npm run typecheck && npm run build && npm run test && npm run lint:package && npm run size",
     "prepublishOnly": "npm run verify"
   },
   "peerDependencies": {

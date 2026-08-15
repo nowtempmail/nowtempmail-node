@@ -19,7 +19,7 @@ const code = await inbox.waitForCode();   // "482913"
 
 ---
 
-## Server-side only. This is not a soft recommendation.
+## Server-side only
 
 `/v1` sends no CORS headers and **rejects any request carrying an `Origin` header with `403 origin_not_allowed`, before it even reads your key.** There is no allowlist to be added to, and there is no configuration that changes this.
 
@@ -35,7 +35,7 @@ Sign in with GitHub at [nowtempmail.com/developers/keys](https://nowtempmail.com
 export NTM_API_KEY="ntm_live_..."
 ```
 
-`ntm_test_...` keys behave identically but are always metered against the Free plan. They are not a data sandbox: a test key creates real mailboxes that receive real mail.
+`ntm_test_...` keys **will** be metered against the Free plan once billing goes live. While `paywall.enabled` is `false` — which it is today — they resolve to the launch plan like every other key and get the same limits. Either way they are not a data sandbox: a test key creates real mailboxes that receive real mail.
 
 Every option is explicit if you would rather not use the environment variable:
 
@@ -74,11 +74,15 @@ test("a new user verifies their email address", async ({ page, inbox }) => {
 | Fixture | Scope | Notes |
 |---|---|---|
 | `inbox` | worker | One mailbox, reused by every test in the worker, and **not deleted on teardown** — the quota is spent either way, and leaving it to expire means a post-mortem can still read what arrived. The default, on purpose. |
-| `freshInbox` | test | Its own mailbox, created before the test and deleted after it. **Costs one mailbox from your daily quota per test, and that is never refunded.** Opt in only when a test genuinely cannot share: asserting on an empty inbox, deleting messages a sibling test needs, or needing a different domain or TTL. |
+| `freshInbox` | test | Its own mailbox, created before the test and deleted after it. **Costs one mailbox from your daily quota per test, and that is never refunded.** Opt in only when a test genuinely cannot share: asserting on an empty inbox, deleting messages a sibling test needs, needing a different domain or TTL, or a suite long enough to fill the shared mailbox — see below. |
 | `ntm` | worker | The `NowTempMail` client, if you need `ntm.me()` or a second mailbox. |
 | `ntmOptions` | worker | The option fixture. Override with `test.use({ ... })`. |
 
 `inbox` and `freshInbox` are a `TestInbox`, not a bare `Mailbox`: `address`, `createdAt`, `expiresAt`, `expired`, `expiresInMs`, `messageCount`, `confirmed`, `messages`, `refresh()`, `delete()` and a `page()` shortcut are forwarded, and `waitForCode()` / `waitForMessage()` add watermarking and trace attachment. `inbox.mailbox` is the unwrapped handle for anything not forwarded.
+
+**A shared mailbox fills up, and that is the one reason not to share one indefinitely.** Every mailbox has a per-inbox message cap — 50 on Free, 200 on Starter, 1,000 on Scale — and once a mailbox has received that many, further mail is **dropped, not rejected**: no error, no header, nothing in `/v1` that says so. See [Rate limits and quota](#rate-limits-and-quota). The `inbox` fixture is exactly the thing that accumulates, because every test in the worker sends to it, and deleting messages does not free capacity — the counter is of mail received, not mail held. When it fills, `waitForCode()` times out with `messagesSeen > 0`, which is the least debuggable outcome available.
+
+Watch `inbox.messageCount` (or page through `inbox.messages`) if a worker runs hundreds of mail-sending tests, and use `freshInbox` — or a second mailbox from the `ntm` fixture — for the tests that generate the most mail. Sharding across Playwright workers helps on its own: each worker gets its own `inbox`.
 
 ### Watermarking
 
@@ -92,7 +96,7 @@ The watermark is the test's start instant **minus a 1s skew, floored to the seco
 
 ### Configuration
 
-Reads `NTM_API_KEY` from the environment. Everything else goes through `ntmOptions`, which accepts all of [`ClientOptions`](#get-a-key) plus four fixture-only keys — `attachBody`, `mailbox` (a `CreateMailboxParams` for both inbox fixtures), `watermarkSkewMs`, and `apiKey`:
+Reads `NTM_API_KEY` from the environment. Everything else goes through `ntmOptions`, which accepts all of [`ClientOptions`](#get-a-key) — `apiKey` included, if you would rather set the key here than in the environment — plus three fixture-only keys: `attachBody`, `mailbox` (a `CreateMailboxParams` for both inbox fixtures), and `watermarkSkewMs`.
 
 ```ts
 // playwright.config.ts, or any spec file
@@ -244,7 +248,9 @@ Run `npx nowtempmail --help` or `nowtempmail help <command>` for the authoritati
 
 ## Webhooks
 
-Starter and Scale. Register by passing `webhookUrl` when you create a mailbox — there is no separate endpoint. The same URL on the same key reuses one endpoint with one health record.
+A Starter and Scale capability on paper — **and available to every account today**, because the paywall is off. While `ntm.me()` reports `paywall.enabled: false`, `webhookUrl` is accepted on any key regardless of plan; it starts returning `402 plan_upgrade_required` on Free only once billing goes live. See [Rate limits and quota](#rate-limits-and-quota).
+
+Register by passing `webhookUrl` when you create a mailbox — there is no separate endpoint. The same URL on the same key reuses one endpoint with one health record.
 
 ```ts
 const inbox = await ntm.mailboxes.create({
@@ -297,7 +303,7 @@ console.log(message.code);
 
 Delivery: 10s timeout per attempt, redirects **not** followed, retried with jitter to a 5-minute ceiling, auto-disabled after 20 consecutive failed attempts (retries count; any 2xx resets the streak). Endpoint health lives on `ntm.me()` under `webhookEndpoints` — check `disabledReason` there first when deliveries go quiet, because it is the only place the auto-disable decision is visible, and nothing re-enables an endpoint on its own. `ntm.webhooks.test()` queues a real signed delivery through the identical path — same queue, same signer, same guard — so you can prove your verifier works before real mail depends on it. Tell a test event apart by the `test_` prefix on `data.messageId`; there is no message behind it and fetching it returns 404.
 
-The signing secret (`whsec_…`) is per API key and minted alongside it. Read it, or rotate it, from the developer portal at [nowtempmail.com/developers/keys](https://nowtempmail.com/developers/keys) — no `/v1` response carries it, because API keys authenticate machines and this is a dashboard concern. Deliveries already in flight were signed with the previous secret, so expect a short window of rejected events after a rotation.
+The signing secret (`whsec_…`) is per API key and minted alongside it. **It is shown once, on the screen that creates the key, and never again** — the same screen as the key itself, and subject to the same rule. No `/v1` response carries it and nothing in the developer portal reads it back, so store it wherever you stored the key, at the moment you store the key. If you no longer have it, create a new key or ask support; there is nowhere to look it up.
 
 ## MCP
 
@@ -332,12 +338,12 @@ Four tools by default:
 |---|---|
 | `create_mailbox` | address and expiry. Args: `domain`, `ttlSeconds` |
 | `list_messages` | id, from, subject, `receivedAt`, codes. Args: `address`, `limit` (1–50, default 10) |
-| `get_code` | one verification code, shape-checked before it is returned. Args: `address`, `from`, `subject`, `timeoutMs` (1000–180000, default 60000) |
+| `get_code` | one verification code, shape-checked before it is returned. Args: `address`, `from`, `subject`, `ignoreExisting`, `timeoutMs` (1000–180000, default 60000) |
 | `delete_mailbox` | confirmation. Says that quota is not refunded |
 
 The default surface deliberately returns **no message bodies, no HTML and no links**. Inbound email is attacker-controlled text and these returns land straight in a model's context, so a shape-constrained return is the mitigation: `get_code` refuses to return anything that is not code-shaped, and sender and subject are defanged and truncated to 200 characters.
 
-`read_message` is registered only when the server is started with `--allow-body-read`. HTML is stripped to text, the text is truncated to 2000 characters, and the result is fenced in an explicit untrusted-content block.
+`read_message` is registered only when the server is started with `--allow-body-read`. HTML is stripped to text, and the `From` header, the `Subject` header and the body are truncated **together** at 2000 characters — the headers are inside the budget, not additional to it — then fenced in an explicit untrusted-content block.
 
 Flags: `--allow-body-read`, `--max-mailboxes <n>` (default 10), `--base-url <url>`, `-h` / `--help`, `-v` / `--version`. They go after the subcommand — `nowtempmail mcp --allow-body-read --max-mailboxes 5` — and reach the server untouched, which in a client config means `"args": ["-y", "nowtempmail@0.1.1", "mcp", "--allow-body-read"]`. The mailbox cap is per server process — mailbox creation is the only quota-consuming call and deletion never refunds it, so the cap is what stops a looping agent from spending a whole day's allowance in a minute. Raising it means restarting the server, which is the point.
 
@@ -382,7 +388,7 @@ try {
 | `invalid_key` | `InvalidKeyError` | 401 | Not recognised — usually a truncated copy/paste |
 | `key_revoked` | `KeyRevokedError` | 401 | Rotate it. Not retryable |
 | `account_suspended` | `AccountSuspendedError` | 403 | The whole account is suspended |
-| `forbidden` | `ForbiddenError` | 403 | Authenticated but not permitted |
+| `forbidden` | `ForbiddenError` | 403 | Authenticated but not permitted. Reserved: no endpoint emits it in this release |
 | `origin_not_allowed` | `OriginNotAllowedError` | 403 | You sent an `Origin` header. You are calling from a browser |
 | `plan_upgrade_required` | `PlanUpgradeRequiredError` | 402 | A paid capability, or a `ttlSeconds` that failed validation |
 | `not_found` | `NotFoundError` | 404 | Gone, expired, or belongs to another key — indistinguishable on purpose |
@@ -406,17 +412,23 @@ try {
 
 ## Rate limits and quota
 
-Two independent, exactly-counted ceilings.
+Three ceilings. Two are counted exactly per API key and reported back in response headers; the third is per mailbox and is reported nowhere.
 
-| Plan | Requests/min | Mailboxes/day | Custom address | Reserved | Webhooks | Max TTL |
-|---|---|---|---|---|---|---|
-| Free | 30 | 50 | — | 0 | — | 24h |
-| Starter | 300 | 2,000 | yes | yes | yes | longer |
-| Scale | 1,200 | 25,000 | yes | yes | yes | longer |
+| Plan | Requests/min | Mailboxes/day | Messages/inbox | Custom address | Reserved | Webhooks | Max `ttlSeconds` |
+|---|---|---|---|---|---|---|---|
+| Free | 30 | 50 | 50 | — | 0 | — | 86,400 (24h) |
+| Starter | 300 | 2,000 | 200 | yes | 5 | yes | 604,800 (7 days) |
+| Scale | 1,200 | 25,000 | 1,000 | yes | 100 | yes | 2,592,000 (30 days) |
+
+**That table is the post-billing state, not what you get today.** While `paywall.enabled` is `false` — which it is right now — every account receives the launch plan's limits and **all four gated capabilities**: custom addresses, reserved addresses, extended TTL and webhooks. `402 plan_upgrade_required` does not occur for those capabilities today, whatever tier your account is on. The numeric ceilings above are still enforced, at the launch plan's values, because they are abuse control rather than price discrimination — a `ttlSeconds` over the ceiling is still a `402`.
+
+Read `ntm.me()` rather than inferring anything from your key prefix or your plan id: `plan` is what you actually have, and `paywall.enabled` is where the change will show up first when billing goes live.
 
 **Free is 30 requests per minute across the whole API**, not per mailbox and not per endpoint — every call the SDK makes shares that budget. Polling one mailbox every two seconds is fine; polling four at that rate is not. `waitForCode` derives its own poll floor from the live `X-RateLimit-Limit` header divided by the number of concurrent watchers, with a 2000 ms minimum, so parallel waiters slow each other down instead of collectively hitting 429. On a 429 it sleeps exactly `Retry-After` and resumes.
 
 **Deleting a mailbox does not refund daily quota.** The 50/day counter increments on creation and nothing decrements it. That single fact is why the Playwright `inbox` fixture is worker-scoped and reused, and why `freshInbox` is opt-in: a per-test mailbox in a 50-test suite is a whole day of Free quota in one CI run. Mailboxes expire on their own after 24h — delete only when you want the data gone now.
+
+**The third ceiling is per mailbox, and nothing surfaces it.** A mailbox accepts 50 messages on Free, 200 on Starter and 1,000 on Scale. The cap is fixed on the mailbox when it is created, so a plan change does not lift it on mailboxes that already exist, and it counts mail *received* over the mailbox's lifetime — deleting messages does not free capacity. Mail past the cap is **dropped, not rejected**: the sender's server sees a successful delivery, no error is raised, no response header reports it, and nothing in `/v1` distinguishes a full mailbox from a quiet one. The only signal available to you is `messageCount` sitting still. Long-lived mailboxes are where this bites — see the [Playwright](#playwright) fixtures.
 
 `ntm.me()` is metered in *peek* mode, so polling it never consumes the quota it reports on. Live counters are also on the client after any request:
 
@@ -437,7 +449,7 @@ ntm.metering.rateLimit;  // { limit, remaining, reset } | null
 
 ## API reference
 
-`create()` does not resolve until one `GET /v1/mailboxes/{address}` has confirmed the mailbox is readable, because the mail receiver drops inbound mail permanently if the inbox is not yet visible in KV. If confirmation does not land within three attempts the handle resolves anyway with `inbox.confirmed === false` — a working mailbox with a slow read beats a thrown error.
+`create()` does not resolve until one `GET /v1/mailboxes/{address}` has confirmed the mailbox is readable, because the mail receiver drops inbound mail permanently if the mailbox is not yet readable. If confirmation does not land within three attempts the handle resolves anyway with `inbox.confirmed === false` — a working mailbox with a slow read beats a thrown error.
 
 | Method | Endpoint |
 |---|---|
@@ -496,7 +508,7 @@ The high-water mark defaults to the mailbox's `createdAt`, not to when you calle
 
 **A handle from `attach()` is the exception, and it matters.** It never talked to the API, so its `createdAt` reads as the epoch and the default mark accepts every message already in the inbox — including one from an hour ago. Always pass `after` or `ignoreExisting` when you attach.
 
-An explicit `pollIntervalMs` is honoured verbatim: no floor, no jitter. The 2000 ms floor applies only to the derived default. Two watchers on one key at `pollIntervalMs: 200` will earn a 429 and it will be your doing, so leave it unset unless you are pointing at a local `wrangler dev`.
+An explicit `pollIntervalMs` is honoured verbatim: no floor, no jitter. The 2000 ms floor applies only to the derived default. Two watchers on one key at `pollIntervalMs: 200` will earn a 429 and it will be your doing, so leave it unset unless you are pointing at a local instance of the API.
 
 Polling reads page one only and dedupes by message id. It never paginates: messages are newest-first, so new mail lands at the front and a cursor walk can miss it.
 
@@ -536,7 +548,7 @@ Attachment bytes and filenames come from whoever sent the mail. Treat both as ho
 
 ## Examples
 
-Runnable files in [`examples/`](./examples):
+Runnable files in [`examples/`](https://github.com/nowtempmail/nowtempmail-node/tree/main/examples) in the repository. They are not in the npm tarball — the published package is `dist/` and the docs, nothing else.
 
 | File | Shows |
 |---|---|
@@ -551,15 +563,18 @@ Runnable files in [`examples/`](./examples):
 - [API quickstart](https://nowtempmail.com/developers) — the HTTP API without an SDK
 - [OpenAPI document](https://nowtempmail.com/v1/openapi.json) — unauthenticated, always current
 - [Changelog](./CHANGELOG.md)
+- [Security policy](https://github.com/nowtempmail/nowtempmail-node/blob/main/SECURITY.md)
 - [Report a bug or request a feature](https://nowtempmail.userjot.com) — the public board, where the roadmap lives too
 
 ## Reporting a problem
 
 Bugs, feature requests and questions all go to **[nowtempmail.userjot.com](https://nowtempmail.userjot.com)**, not to GitHub issues. It is the same board the rest of NowTempMail uses, so a report lands next to the roadmap rather than in a tracker nobody watches.
 
-Two things make a report actionable, and both are in the error you already have:
+**A security vulnerability is the exception: email [contact@nowtempmail.com](mailto:contact@nowtempmail.com), never the board.** Everything posted there is world-readable the moment it is posted. See [SECURITY.md](https://github.com/nowtempmail/nowtempmail-node/blob/main/SECURITY.md) for scope and what to include.
 
-- **`err.requestId`** — every error carries one, and it is written to our server log. Quoting it turns "a call failed" into a single log line we can read.
+Two things make an ordinary report actionable, and both are in the error you already have:
+
+- **`err.requestId`** — every error that reached the wire carries one, and it is written to our server log. Quoting it turns "a call failed" into a single log line we can read. Errors the SDK raises itself rather than from an API response — `timeout`, `config_error`, `browser_use_refused`, `webhook_signature` and `webhook_config` — have no request id, so `err.requestId` is `undefined` there; send `err.toLogString()` instead.
 - **`err.code`** — the stable machine-readable code, e.g. `plan_upgrade_required`. The `detail` text is prose and may be reworded; the code will not be.
 
 ```ts

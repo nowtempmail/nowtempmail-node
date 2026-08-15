@@ -70,7 +70,12 @@ const MAX_UNPACKED_BYTES = 480 * 1024;
 // byte budgets, this number does not move when someone edits the README — it
 // moves only when the build's shape does, and that should always be a decision
 // rather than a surprise.
-const MAX_ENTRY_COUNT = 42;
+// 43 as of 0.1.2: SECURITY.md now ships. A security policy that reaches only
+// the repository is no use to someone who has the tarball and has found
+// something — and the npm page is where a reporter looks first. One file, ~3 KB,
+// and the exact-fit discipline above is what forced this to be an explicit
+// decision rather than a silent drift.
+const MAX_ENTRY_COUNT = 43;
 
 /** Where the client entry graph starts. Its chunk imports are discovered, not listed. */
 const CLIENT_ENTRY = "dist/index.js";
