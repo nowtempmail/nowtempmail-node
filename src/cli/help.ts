@@ -43,18 +43,35 @@ function usageLine(command: CommandSpec): string {
   return `${BIN} ${command.name}${args ? ` ${args}` : ""}${flags}`;
 }
 
+/**
+ * `mcp` is listed with the commands but is not one of them: it is intercepted
+ * in `bin.ts` before the parser runs, because the MCP server owns a different
+ * flag set. See `./mcp.ts`. It is spelled out here so the command list a user
+ * reads matches the commands the binary answers to.
+ */
+const MCP_ROW = [
+  "mcp",
+  "Speak MCP on stdio for a coding agent (see `nowtempmail mcp --help`)",
+] as const;
+
 /** The top-level `--help`. */
 export function renderUsage(palette: Palette, version: string): string {
-  const names = COMMANDS.map((c) => {
-    const args = c.args.map((a) => `<${a.name}>`).join(" ");
-    return `${c.name}${args ? ` ${args}` : ""}`;
-  });
+  const names = [
+    ...COMMANDS.map((c) => {
+      const args = c.args.map((a) => `<${a.name}>`).join(" ");
+      return `${c.name}${args ? ` ${args}` : ""}`;
+    }),
+    MCP_ROW[0],
+  ];
   const width = Math.max(...names.map((n) => n.length));
 
-  const commandLines = COMMANDS.map((command, i) => {
-    const alias = command.aliases.length > 0 ? ` (alias: ${command.aliases.join(", ")})` : "";
-    return `  ${(names[i] ?? "").padEnd(width)}  ${palette.dim(command.summary + alias)}`;
-  });
+  const commandLines = [
+    ...COMMANDS.map((command, i) => {
+      const alias = command.aliases.length > 0 ? ` (alias: ${command.aliases.join(", ")})` : "";
+      return `  ${(names[i] ?? "").padEnd(width)}  ${palette.dim(command.summary + alias)}`;
+    }),
+    `  ${MCP_ROW[0].padEnd(width)}  ${palette.dim(MCP_ROW[1])}`,
+  ];
 
   return [
     `${palette.bold(BIN)} ${palette.dim(version)} — disposable mailboxes and OTP codes, from your shell`,

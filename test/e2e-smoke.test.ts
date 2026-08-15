@@ -22,6 +22,7 @@ import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { NowTempMail } from "../src/index.js";
+import { VERSION } from "../src/http.js";
 import { createToolset } from "../src/mcp/index.js";
 import { createMockApi, startMockServer, MOCK_KEY, type MockApi } from "./helpers/mock-api.js";
 
@@ -231,6 +232,25 @@ describe.skipIf(!cliBuilt)("CLI end to end (built dist)", () => {
     const { stdout } = await cli(["code", inbox.address, "--wait", "5"]);
     // Pipeable into a shell script: nothing but the code.
     expect(stdout.trim()).toBe("991234");
+  });
+
+  it("answers to `mcp`, the invocation the MCP docs tell people to paste", async () => {
+    // 0.1.0 documented `npx -y nowtempmail-mcp`, which 404s: npx resolves a
+    // package name and this is only a bin name. `--version` and `--help` both
+    // return before the server needs a key or a transport, so this asserts the
+    // routing through the real binary without leaving a stdio server behind.
+    const { stdout } = await execFileAsync(process.execPath, [CLI_PATH, "mcp", "--version"], {
+      env,
+      timeout: 20_000,
+    });
+    expect(stdout.trim()).toBe(VERSION);
+
+    const help = await execFileAsync(process.execPath, [CLI_PATH, "mcp", "--help"], {
+      env,
+      timeout: 20_000,
+    });
+    expect(help.stdout).toContain("nowtempmail mcp [options]");
+    expect(help.stdout).toContain("--allow-body-read");
   });
 
   it("exits non-zero with a usable message when no key is set", async () => {

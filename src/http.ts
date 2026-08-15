@@ -39,7 +39,7 @@ import type { MeteringSnapshot, ProblemCode, WireProblem } from "./types.js";
  * two disagree, which is the only thing keeping them honest. npm versions are
  * immutable, so a wrong value here is wrong forever on that release.
  */
-export const VERSION = "0.1.0";
+export const VERSION = "0.1.1";
 
 /**
  * The shape `X-Request-Id` must have. Deliberately narrow: the value is echoed

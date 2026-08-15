@@ -177,7 +177,7 @@ Give `cy.task` a timeout larger than `waitForCode`'s own (60s by default), or Cy
 
 ## CLI
 
-Two binaries ship with the package: `nowtempmail` and `nowtempmail-mcp`. Both read the key from `NTM_API_KEY` and nothing else — there is no `login` command and no config file, because a key on a command line ends up in `ps` output and shell history.
+Two binaries ship with the package: `nowtempmail` and `nowtempmail-mcp` — and the MCP server is also reachable as `nowtempmail mcp`, which is the form the [MCP](#mcp) section documents. Both read the key from `NTM_API_KEY` and nothing else — there is no `login` command and no config file, because a key on a command line ends up in `ps` output and shell history.
 
 ```bash
 # Create a mailbox. The address is the only thing on stdout.
@@ -208,8 +208,11 @@ npx nowtempmail rm "$ADDR"      # tells you quota is not refunded
 | `rm <address>` | — |
 | `whoami` (alias `me`) | — |
 | `domains` | — |
+| `mcp` | The MCP stdio server. Its own flag set — see [MCP](#mcp) |
 
 Global flags, accepted on every command: `--base-url <url>` (also read from `NTM_BASE_URL`), `--json`, `--no-color`, `--help` / `-h`. `--version` / `-V` works as the first argument. `nowtempmail help <command>` is equivalent to `nowtempmail <command> --help`.
+
+`mcp` is the exception to that table: it hands everything after it straight to the MCP server, which has its own flags, so `nowtempmail mcp --help` and `nowtempmail mcp --version` print the *server's* help and version rather than the CLI's.
 
 `--from` and `--subject` are case-insensitive **substring** matches on the raw header, not regexes — the shell would eat the slashes anyway. `--wait` defaults to 60 seconds. Integer flags reject anything that is not a positive whole number rather than silently rounding, because a typo'd `--wait` that blocks a CI job for the default 60s is worse than a hard failure.
 
@@ -298,21 +301,30 @@ The signing secret (`whsec_…`) is per API key and minted alongside it. Read it
 
 ## MCP
 
-`nowtempmail-mcp` exposes the mailbox as tools to an MCP client, so an agent can sign itself up for things.
+`nowtempmail mcp` exposes the mailbox as tools to an MCP client, so an agent can sign itself up for things.
 
 ```json
 {
   "mcpServers": {
     "nowtempmail": {
       "command": "npx",
-      "args": ["-y", "nowtempmail-mcp@0.1.0"],
+      "args": ["-y", "nowtempmail@0.1.1", "mcp"],
       "env": { "NTM_API_KEY": "${NTM_API_KEY}" }
     }
   }
 }
 ```
 
-Pin the version and keep the `${NTM_API_KEY}` indirection. `.mcp.json` gets committed, and `npx -y` on a floating version is a fresh download of whatever was published this morning executed with your key in its environment.
+**The package is `nowtempmail` and `mcp` is a subcommand of it.** `npx -y nowtempmail-mcp` does not work and never did: npx resolves a *package* name, and `nowtempmail-mcp` is the name of a second bin inside this package, not a package of its own. 0.1.0's README got this wrong; it 404s. If you prefer the bin directly, `-p` is what tells npx which package to take it from:
+
+```jsonc
+// Equivalent, for anyone who wants the bin rather than the subcommand.
+"args": ["-y", "-p", "nowtempmail@0.1.1", "nowtempmail-mcp"]
+```
+
+Both forms run the same server. `nowtempmail mcp --help` and `nowtempmail mcp --version` print the server's own help and version and exit immediately, without opening a transport or needing a key — which makes them the smoke test to run when a client reports the server as unhealthy.
+
+Pin the version and keep the `${NTM_API_KEY}` indirection. `.mcp.json` gets committed, so a literal key in it is a published key — and `npx -y` on a floating version is a fresh download of whatever was published this morning executed with your key in its environment.
 
 Four tools by default:
 
@@ -327,7 +339,7 @@ The default surface deliberately returns **no message bodies, no HTML and no lin
 
 `read_message` is registered only when the server is started with `--allow-body-read`. HTML is stripped to text, the text is truncated to 2000 characters, and the result is fenced in an explicit untrusted-content block.
 
-Flags: `--allow-body-read`, `--max-mailboxes <n>` (default 10), `--base-url <url>`, `-h` / `--help`, `-v` / `--version`. The mailbox cap is per server process — mailbox creation is the only quota-consuming call and deletion never refunds it, so the cap is what stops a looping agent from spending a whole day's allowance in a minute. Raising it means restarting the server, which is the point.
+Flags: `--allow-body-read`, `--max-mailboxes <n>` (default 10), `--base-url <url>`, `-h` / `--help`, `-v` / `--version`. They go after the subcommand — `nowtempmail mcp --allow-body-read --max-mailboxes 5` — and reach the server untouched, which in a client config means `"args": ["-y", "nowtempmail@0.1.1", "mcp", "--allow-body-read"]`. The mailbox cap is per server process — mailbox creation is the only quota-consuming call and deletion never refunds it, so the cap is what stops a looping agent from spending a whole day's allowance in a minute. Raising it means restarting the server, which is the point.
 
 The key is read from `NTM_API_KEY` only and is never accepted as a flag. Once the transport is up, nothing but protocol frames go to stdout; diagnostics go to stderr.
 

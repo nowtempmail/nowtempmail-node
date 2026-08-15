@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-15
+
+Documentation fix with the code change that makes the documentation true. No API
+change; nothing that worked in 0.1.0 stops working.
+
+### Fixed
+
+- **The MCP invocation in the 0.1.0 README does not exist.** It said to run
+  `npx -y nowtempmail-mcp@0.1.0`, which 404s: npx resolves a *package* name, and
+  `nowtempmail-mcp` is the name of a second bin inside the `nowtempmail` package
+  rather than a package of its own. Every MCP client configured from that README
+  failed to start the server. The working spellings are now documented, and one
+  of them is new.
+
+### Added
+
+- `nowtempmail mcp` — the MCP stdio server as a subcommand of the main binary,
+  so `npx -y nowtempmail@0.1.1 mcp` works. Everything after `mcp` is handed to
+  the server untouched, including its own flags: `nowtempmail mcp
+  --allow-body-read --max-mailboxes 5`. `nowtempmail mcp --help` and
+  `nowtempmail mcp --version` print the server's help and version and exit
+  without opening a transport or reading a key.
+- `mcp` is listed in `nowtempmail --help`, alongside the commands it is not one
+  of. It is intercepted before the CLI's flag parser runs, because the MCP server
+  has a different flag vocabulary and routing it through the CLI's strict
+  unknown-flag handling would mean loosening that handling for every command.
+
+### Unchanged
+
+- The `nowtempmail-mcp` bin is still published and still behaves identically.
+  Existing `.mcp.json` files that invoke it directly keep working; the explicit
+  form is `npx -y -p nowtempmail nowtempmail-mcp`, where `-p` is what tells npx
+  which package the bin comes from.
+- The security guidance around it: pin the version, and keep
+  `"env": { "NTM_API_KEY": "${NTM_API_KEY}" }`. `.mcp.json` gets committed, so a
+  literal key in one is a published key.
+
 ## [0.1.0] - 2026-08-14
 
 First public release. Everything below is new; the list exists so you can see
@@ -141,5 +178,6 @@ the surface area, and the boundaries, before you depend on it.
   file that trigger mail from the same sender within the same second can still
   match each other's. Disambiguate with `from` or `subject`.
 
-[Unreleased]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/nowtempmail/nowtempmail-node/releases/tag/v0.1.0

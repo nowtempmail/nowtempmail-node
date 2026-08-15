@@ -36,9 +36,9 @@
  *
  *   mailslurp-client   10.4 MB   2,172 files
  *   mailosaur           245 KB     221 files
- *   nowtempmail         400 KB      38 files
+ *   nowtempmail         440 KB      42 files
  *
- * 26x smaller than the former. 1.6x the latter's bytes with 5.8x fewer files —
+ * 24x smaller than the former. 1.8x the latter's bytes with 5.2x fewer files —
  * while also shipping a CLI, an MCP server, a Playwright fixture and a webhook
  * verifier, none of which either of those has.
  *
@@ -62,7 +62,15 @@ const MAX_CLIENT_ENTRY_BYTES = 60 * 1024;
 // MAX_CLIENT_ENTRY_BYTES above — the bytes a cold serverless import pays for.
 // This one only has to catch a genuine balloon, so give it real headroom.
 const MAX_UNPACKED_BYTES = 480 * 1024;
-const MAX_ENTRY_COUNT = 40;
+// Raised from 40 in 0.1.1, which sat exactly on the ceiling. `nowtempmail mcp`
+// loads the MCP server through a dynamic import — deliberately, so an ordinary
+// `nowtempmail new` does not pay for a module it will never call — and code
+// splitting emits that boundary as one small file per format (~0.7 KB the pair).
+// Two files, both accounted for. Kept at an exact fit, as 40 was: unlike the
+// byte budgets, this number does not move when someone edits the README — it
+// moves only when the build's shape does, and that should always be a decision
+// rather than a surprise.
+const MAX_ENTRY_COUNT = 42;
 
 /** Where the client entry graph starts. Its chunk imports are discovered, not listed. */
 const CLIENT_ENTRY = "dist/index.js";
