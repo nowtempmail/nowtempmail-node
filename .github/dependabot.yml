@@ -1,0 +1,59 @@
+# Dependabot configuration for the `nowtempmail` package.
+#
+# ---------------------------------------------------------------------------
+# READ THIS BEFORE MERGING A DEPENDABOT PR.
+#
+# This repository is a release mirror: the canonical source lives upstream in a
+# private workspace, and each release arrives here as one squashed snapshot
+# commit that replaces the tree wholesale. A Dependabot PR merged here is
+# therefore reverted by the next release sync unless the same bump is
+# back-ported upstream FIRST.
+#
+# The working order is: apply the bump upstream, merge it here (or just let the
+# next snapshot carry it), and the PR closes itself. Merging here alone looks
+# like it worked and quietly undoes itself a release later.
+#
+# These PRs are still worth having: they are the notification that a pinned
+# action SHA or a devDependency has moved, which is the part that is hard to
+# notice by hand.
+# ---------------------------------------------------------------------------
+
+version: 2
+
+updates:
+  # The workflows pin every third-party action to a full commit SHA, which is
+  # what makes them safe and also what makes them rot: a SHA never floats
+  # forward on its own, so without this nothing here is ever updated again.
+  # Dependabot moves the SHA and the `# vX.Y.Z` comment beside it together.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies
+      - github-actions
+
+  # devDependencies only. The package ships ZERO runtime dependencies and must
+  # keep it that way, so there is no production group to update — if Dependabot
+  # ever opens a PR adding a `dependencies` entry, something is wrong upstream
+  # and the PR should be closed rather than merged.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    versioning-strategy: increase
+    allow:
+      - dependency-type: development
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+    labels:
+      - dependencies
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch

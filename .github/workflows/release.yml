@@ -1,0 +1,100 @@
+# Publish `nowtempmail` to npm on a `v*` tag, or on a manual re-run of one.
+#
+# ---------------------------------------------------------------------------
+# THIS REQUIRES A PUBLIC REPOSITORY.
+#
+# `npm publish --provenance` builds a signed attestation linking the tarball to
+# this workflow run, this commit and this repository, and it publishes that
+# attestation to a public transparency log (Sigstore/Rekor). npm rejects
+# provenance from a private repository — there would be nothing anyone could
+# verify the attestation against.
+#
+# That is why the package is released from this public repository — the one
+# `package.json` `repository.url` already points at — and not from anywhere
+# else. Publishing from a private location silently loses provenance, or fails
+# outright.
+# ---------------------------------------------------------------------------
+#
+# There is no NPM_TOKEN in this workflow, and there must never be one. Auth is
+# npm trusted publishing: npm exchanges the short-lived OIDC token GitHub mints
+# for this run for a publish credential scoped to this package. A long-lived
+# token in repository secrets is a credential that can be exfiltrated by any
+# workflow, any action, and any postinstall script that runs in this repo.
+#
+# One-time setup, on npmjs.com under the package's Settings -> Publishing access:
+# add a trusted publisher for this repository and this workflow filename.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  # A tag push is the normal trigger, but it is a one-shot one: if a publish
+  # fails half way through a run, the tag already exists and nothing shipped,
+  # and re-running would otherwise mean deleting and re-pushing the tag. Manual
+  # dispatch re-runs the same job, so recovery needs no tag surgery. Select the
+  # release tag itself as the ref: the version check below compares the ref name
+  # against `package.json` and fails on anything else, so dispatching from a
+  # branch is not a way to publish something unversioned.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # The npm registry checks these claims. `environment` is optional but gives
+    # you a place to require a manual approval before a publish happens.
+    permissions:
+      id-token: write # mint the OIDC token npm exchanges. The whole mechanism.
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm >= 11.5.1. Node 24 ships something close,
+      # but pinning the npm version here means a runner image update cannot
+      # quietly drop the package back to token auth.
+      - name: Upgrade npm
+        run: npm install -g npm@^11.5.1
+
+      - name: Install
+        run: npm ci
+
+      # typecheck -> test -> build -> lint:package -> size, all of it, before
+      # anything is published. `prepublishOnly` runs the same script, so this is
+      # belt and braces: it fails the job before the publish step exists rather
+      # than half way through one.
+      - name: Verify
+        run: npm run verify
+
+      # Refuse to publish a tag that does not match the manifest. Getting this
+      # wrong means v0.2.0 on GitHub and 0.1.0 on npm, forever, because npm
+      # versions are immutable.
+      - name: Check tag matches package.json version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $pkg"
+            exit 1
+          fi
+          echo "publishing $pkg"
+
+      - name: Publish
+        run: npm publish --provenance --access public

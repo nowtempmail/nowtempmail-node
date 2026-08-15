@@ -1,0 +1,62 @@
+# Weekly check that this SDK still matches the live `/v1` OpenAPI document.
+#
+# `scripts/check-spec-drift.mjs` has always said that CI is where it is expected
+# to actually run — and until this workflow existed, nothing ran it. It is not
+# part of `npm run verify` on purpose: it makes a network call to the live API,
+# so it does not belong in a pull-request gate that must pass offline and must
+# not fail because the API had a bad minute. A weekly scheduled run is the right
+# shape for it — drift is something you want to hear about within a week, not
+# within a commit.
+#
+# It compares the vendored spec against the live document, so a failure here
+# means one of two things: `/v1` gained or lost an operation and this SDK has
+# not caught up, or the vendored spec is stale. Either way the fix is upstream —
+# this repository is a release mirror (see CONTRIBUTING.md), so nothing here is
+# a place to patch it.
+#
+# No secrets: the OpenAPI document is unauthenticated.
+#
+# Action SHAs are the same pins as `ci.yml`, deliberately. If you move one,
+# move both.
+
+name: Spec drift
+
+on:
+  schedule:
+    # Mondays, 06:17 UTC. Off the hour, because a scheduled run on the hour
+    # queues behind everyone else's.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spec-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: Compare vendored spec with live /v1
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      # The check itself needs no build, but `npm ci` keeps the lockfile as the
+      # single input and matches how every other workflow installs.
+      - name: Install
+        run: npm ci
+
+      - name: Spec drift
+        run: npm run spec:drift

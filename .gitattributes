@@ -1,0 +1,17 @@
+# Normalise line endings to LF, in the repository and in the working tree.
+#
+# This package is authored on Windows and released from a Linux CI runner. Without
+# this, the first commit stores CRLF, the runner checks out CRLF, and every
+# subsequent sync of an otherwise-identical tree shows every file as modified —
+# which makes the release diff, the one artifact a human is expected to read in
+# full before publishing, completely unreadable.
+#
+# `eol=lf` rather than bare `text=auto` so checkouts are LF too, on every
+# platform. Nothing here is sensitive to native line endings.
+* text=auto eol=lf
+
+# Binary-ish artefacts: never touch these.
+*.png binary
+*.jpg binary
+*.gz binary
+*.tgz binary

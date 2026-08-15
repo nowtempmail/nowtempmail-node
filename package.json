@@ -1,0 +1,126 @@
+{
+  "name": "nowtempmail",
+  "version": "0.1.0",
+  "description": "Disposable mailboxes and OTP codes for your tests. Verification codes are extracted server-side, so there is no regex to write.",
+  "license": "MIT",
+  "author": "NowTempMail",
+  "homepage": "https://nowtempmail.com/developers",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nowtempmail/nowtempmail-node.git"
+  },
+  "bugs": {
+    "url": "https://nowtempmail.userjot.com"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
+  "bin": {
+    "nowtempmail": "./dist/cli/bin.js",
+    "nowtempmail-mcp": "./dist/mcp/bin.js"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./webhooks": {
+      "import": {
+        "types": "./dist/webhooks/index.d.ts",
+        "default": "./dist/webhooks/index.js"
+      },
+      "require": {
+        "types": "./dist/webhooks/index.d.cts",
+        "default": "./dist/webhooks/index.cjs"
+      }
+    },
+    "./playwright": {
+      "import": {
+        "types": "./dist/playwright/index.d.ts",
+        "default": "./dist/playwright/index.js"
+      },
+      "require": {
+        "types": "./dist/playwright/index.d.cts",
+        "default": "./dist/playwright/index.cjs"
+      }
+    },
+    "./mcp": {
+      "import": {
+        "types": "./dist/mcp/index.d.ts",
+        "default": "./dist/mcp/index.js"
+      },
+      "require": {
+        "types": "./dist/mcp/index.d.cts",
+        "default": "./dist/mcp/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "otp",
+    "2fa",
+    "mfa",
+    "e2e",
+    "e2e-testing",
+    "email-testing",
+    "disposable-email",
+    "temporary-email",
+    "tempmail",
+    "playwright",
+    "cypress",
+    "verification-code",
+    "mcp",
+    "nowtempmail"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint:package": "publint --strict && attw --pack . --profile node16",
+    "size": "node scripts/check-size.mjs",
+    "spec:vendor": "node scripts/vendor-spec.mjs",
+    "spec:drift": "node scripts/check-spec-drift.mjs",
+    "verify": "npm run typecheck && npm run test && npm run build && npm run lint:package && npm run size",
+    "prepublishOnly": "npm run verify"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": ">=1.0.0",
+    "@playwright/test": ">=1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    },
+    "@modelcontextprotocol/sdk": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0",
+    "publint": "^0.3.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
