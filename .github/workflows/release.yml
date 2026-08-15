@@ -15,11 +15,17 @@
 # outright.
 # ---------------------------------------------------------------------------
 #
-# There is no NPM_TOKEN in this workflow, and there must never be one. Auth is
-# npm trusted publishing: npm exchanges the short-lived OIDC token GitHub mints
-# for this run for a publish credential scoped to this package. A long-lived
-# token in repository secrets is a credential that can be exfiltrated by any
-# workflow, any action, and any postinstall script that runs in this repo.
+# The destination for authentication here is npm trusted publishing: npm
+# exchanges the short-lived OIDC token GitHub mints for this run for a publish
+# credential scoped to this package, and no long-lived secret exists at all. A
+# token sitting in repository secrets is a credential that any workflow, any
+# action and any postinstall script running in this repo could exfiltrate.
+#
+# It is not that yet. Trusted publishing is configured per package and the
+# package must already exist, so 0.1.0 authenticates with a temporary granular
+# token — see the block above the Publish step, which also carries the steps to
+# remove it. That block is the only place a secret is referenced, and it is
+# meant to be deleted, not maintained.
 #
 # One-time setup, on npmjs.com under the package's Settings -> Publishing access:
 # add a trusted publisher for this repository and this workflow filename.
@@ -96,5 +102,27 @@ jobs:
           fi
           echo "publishing $pkg"
 
+      # ---------------------------------------------------------------------
+      # TEMPORARY — remove once trusted publishing is configured.
+      #
+      # Trusted publishing is configured per package, under the package's own
+      # settings on npmjs.com, which means the package has to exist before it
+      # can be set up. The first release therefore cannot use it, and
+      # authenticates with a short-lived granular token instead.
+      #
+      # Provenance is unaffected. `--provenance` needs the OIDC token GitHub
+      # mints for this run (`id-token: write`, declared above) and a public
+      # repository — not trusted publishing. So 0.1.0 is attested exactly like
+      # every release after it.
+      #
+      # After 0.1.0 is on npm:
+      #   1. npmjs.com -> nowtempmail -> Settings -> Publishing access ->
+      #      add a trusted publisher for this repository and `release.yml`,
+      #      leaving Environment blank (this job declares none).
+      #   2. Delete the NPM_TOKEN repository secret and revoke the token.
+      #   3. Delete this block and the `env:` below.
+      # ---------------------------------------------------------------------
       - name: Publish
         run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
