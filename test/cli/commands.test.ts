@@ -109,6 +109,18 @@ describe("new", () => {
     expect(stdout + stderr).not.toContain(CSI);
   });
 
+  it("puts remaining daily quota in --json, not only in the stderr prose", async () => {
+    const { code, stdout } = await runCli(["new", "--json"]);
+    expect(code).toBe(EXIT.OK);
+    const shaped = JSON.parse(stdout) as {
+      quota?: { mailboxesRemainingToday: number; mailboxesPerDay: number; resetsAt: string };
+    };
+    // 50/day on the mock's Free plan, and creation just spent one.
+    expect(shaped.quota?.mailboxesPerDay).toBe(50);
+    expect(shaped.quota?.mailboxesRemainingToday).toBe(49);
+    expect(shaped.quota?.resetsAt).toMatch(/Z$/);
+  });
+
   it("honours --domain and --ttl", async () => {
     const { code, stdout, stderr } = await runCli([
       "new",
@@ -431,6 +443,36 @@ describe("credentials", () => {
     });
     expect(code).toBe(EXIT.OK);
     expect(outChunks.join("")).toContain("allogebra.com");
+  });
+
+  it("appends NTM_USER_AGENT_SUFFIX to the User-Agent", async () => {
+    const { code } = await runCli(["domains"], {
+      env: { NTM_USER_AGENT_SUFFIX: "nowtempmail-action/1.0.0" },
+    });
+    expect(code).toBe(EXIT.OK);
+    const ua = api.requests.at(-1)?.userAgent ?? "";
+    expect(ua).toContain(`nowtempmail-node/${VERSION}`);
+    expect(ua).toContain("nowtempmail-action/1.0.0");
+  });
+
+  it("sends a plain User-Agent when no suffix is set", async () => {
+    const { code } = await runCli(["domains"]);
+    expect(code).toBe(EXIT.OK);
+    expect(api.requests.at(-1)?.userAgent).toMatch(
+      new RegExp(`^nowtempmail-node/${VERSION.replace(/\./g, "\\.")}( node/[\\d.]+)?$`),
+    );
+  });
+
+  it("strips control characters out of a hostile suffix", async () => {
+    // The value reaches a header. A CR or LF in one is response splitting, and
+    // this is read from an environment a CI wrapper controls, not from argv.
+    const { code } = await runCli(["domains"], {
+      env: { NTM_USER_AGENT_SUFFIX: "evil/1.0\r\nX-Injected: yes" },
+    });
+    expect(code).toBe(EXIT.OK);
+    const ua = api.requests.at(-1)?.userAgent ?? "";
+    expect(ua).not.toMatch(/[\r\n]/);
+    expect(ua).toContain("evil/1.0");
   });
 
   it("exits 2 on a base URL that would put the key on the wire in clear text", async () => {

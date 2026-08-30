@@ -242,7 +242,9 @@ A rate limit is not a failure. The SDK waits out the window, the CLI prints an a
 
 `code` fetches the mailbox with one `GET` before it starts waiting. That turns a typo'd address into `no mailbox …` immediately instead of a 60-second wait, and it gives the poller the mailbox's real `createdAt` as its high-water mark — so a code that landed *before* you ran the command is still found.
 
-Other environment variables: `NTM_BASE_URL`, `NO_COLOR` (and `TERM=dumb`) to disable colour, `NTM_POLL_INTERVAL_MS` to override the derived poll interval. Colour is emitted only when stdout is a TTY, so piped output is always plain.
+Other environment variables: `NTM_BASE_URL`, `NO_COLOR` (and `TERM=dumb`) to disable colour, `NTM_POLL_INTERVAL_MS` to override the derived poll interval, and `NTM_USER_AGENT_SUFFIX` to append an identifier to the `User-Agent` — for a wrapper that wants its own traffic distinguishable from a human at a prompt. Control characters are stripped and the value is capped, so it is safe to pass through from a CI variable. Colour is emitted only when stdout is a TTY, so piped output is always plain.
+
+`new --json` carries a `quota` block — `mailboxesRemainingToday`, `mailboxesPerDay`, `resetsAt` — whenever the response reported one. Read that rather than the stderr status line if a script needs the number: the status line is prose and may be reworded, the JSON field will not be.
 
 Run `npx nowtempmail --help` or `nowtempmail help <command>` for the authoritative list; the binary generates its help from the same table the parser uses, so a flag cannot exist in one and be missing from the other.
 

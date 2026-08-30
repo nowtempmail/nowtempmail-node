@@ -101,8 +101,19 @@ export interface MockApi {
     reservations: Array<{ id: string; address: string; createdAt: number }>;
     webhookEndpoints: Array<{ id: string; url: string; status: "active" | "disabled" }>;
   };
-  /** Every request seen, in order. Assert traffic shape against this. */
-  requests: Array<{ method: string; path: string; requestId: string | null }>;
+  /**
+   * Every request seen, in order. Assert traffic shape against this.
+   *
+   * `userAgent` is recorded because it is the only thing `/v1` learns about who
+   * invoked a caller — the CLI, a wrapper, an integration — and channel
+   * attribution has no other signal to work from.
+   */
+  requests: Array<{
+    method: string;
+    path: string;
+    requestId: string | null;
+    userAgent: string | null;
+  }>;
   reset(): void;
 }
 
@@ -221,7 +232,12 @@ export function createMockApi(options: MockApiOptions = {}): MockApi {
     const url = new URL(request.url);
     const path = url.pathname;
     const requestId = request.headers.get("X-Request-Id") ?? `req_mock${++seq}`;
-    requests.push({ method: request.method, path, requestId });
+    requests.push({
+      method: request.method,
+      path,
+      requestId,
+      userAgent: request.headers.get("User-Agent"),
+    });
 
     // The origin guard runs before auth, exactly as /v1 does.
     if (request.headers.get("Origin")) {

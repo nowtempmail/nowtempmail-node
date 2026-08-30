@@ -27,7 +27,7 @@ export async function newCommand(ctx: CliContext, flags: Flags): Promise<number>
   const waitCode = flagBoolean(flags, "wait-code");
 
   if (!waitCode) {
-    if (ctx.json) writeJson(ctx, mailboxJson(mailbox));
+    if (ctx.json) writeJson(ctx, mailboxJson(mailbox, ctx.client.metering));
     else ctx.io.out(`${mailbox.address}\n`);
     status(ctx, createdStatusLine(mailbox, ctx.client.metering));
     if (!mailbox.confirmed) {
@@ -47,7 +47,7 @@ export async function newCommand(ctx: CliContext, flags: Flags): Promise<number>
   status(ctx, `waiting up to ${waitSeconds}s for a verification code · ⌃C to stop`);
   try {
     const code = await awaitCode(ctx, mailbox, { timeoutMs: waitSeconds * 1000 });
-    if (ctx.json) writeJson(ctx, { ...mailboxJson(mailbox), code });
+    if (ctx.json) writeJson(ctx, { ...mailboxJson(mailbox, ctx.client.metering), code });
     else ctx.io.out(`${code}\n`);
     return EXIT.OK;
   } catch (err) {

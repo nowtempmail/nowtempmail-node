@@ -282,6 +282,23 @@ describe("tables and blocks", () => {
     expect(messageJson(summary()).verificationCodes).toEqual(["482913"]);
     expect(messageJson(summary()).receivedAt).toBe("2026-08-14T12:04:33.000Z");
   });
+
+  it("carries quota into --json when the response reported it", () => {
+    const shaped = mailboxJson(mailbox(), metering(37));
+    expect(shaped.quota).toEqual({
+      mailboxesRemainingToday: 37,
+      mailboxesPerDay: 50,
+      resetsAt: expect.stringMatching(/Z$/),
+    });
+  });
+
+  it("omits quota rather than nulling it when the headers were absent", () => {
+    // `quota: null` would read as "no mailboxes left today" to anything that
+    // checks the field before checking its type. Absent is the honest shape.
+    expect("quota" in mailboxJson(mailbox())).toBe(false);
+    expect("quota" in mailboxJson(mailbox(), null)).toBe(false);
+    expect("quota" in mailboxJson(mailbox(), { rateLimit: null, quota: null })).toBe(false);
+  });
 });
 
 describe("help", () => {

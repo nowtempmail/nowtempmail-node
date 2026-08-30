@@ -24,7 +24,23 @@ import {
 /* JSON shapes                                                                */
 /* -------------------------------------------------------------------------- */
 
-export function mailboxJson(mailbox: Mailbox): Record<string, unknown> {
+/**
+ * `new --json`.
+ *
+ * `metering` is optional and, when the response carried `X-Quota-*`, adds a
+ * `quota` block. That block exists for wrappers: remaining daily quota is
+ * otherwise only in {@link createdStatusLine}, which is prose on stderr that
+ * this file is free to reword at any time. A caller that had to regex it would
+ * break on a wording change, so machine-readable output gets its own field.
+ *
+ * Absent rather than null when unknown — an attachment download carries no
+ * quota headers, and a `quota: null` would read as "no quota left".
+ */
+export function mailboxJson(
+  mailbox: Mailbox,
+  metering?: MeteringSnapshot | null,
+): Record<string, unknown> {
+  const quota = metering?.quota;
   return {
     address: mailbox.address,
     localPart: mailbox.localPart,
@@ -36,6 +52,15 @@ export function mailboxJson(mailbox: Mailbox): Record<string, unknown> {
     webhookUrl: mailbox.webhookUrl,
     messageCount: mailbox.messageCount,
     confirmed: mailbox.confirmed,
+    ...(quota === undefined || quota === null
+      ? {}
+      : {
+          quota: {
+            mailboxesRemainingToday: quota.remaining,
+            mailboxesPerDay: quota.limit,
+            resetsAt: quota.reset.toISOString(),
+          },
+        }),
   };
 }
 

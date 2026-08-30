@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-08-26
+
+Two additions the GitHub Action needs, both of which are useful to any wrapper
+that drives the CLI. No behaviour changes for an existing caller.
+
+### Added
+
+- **`NTM_USER_AGENT_SUFFIX`** is read by the CLI and appended to the
+  `User-Agent`. `ClientOptions.userAgentSuffix` has always existed on the SDK,
+  but the CLI exposed it through neither a flag nor an environment variable —
+  so traffic from a wrapper was indistinguishable from a human at a prompt, and
+  there is no other signal `/v1` could attribute a key to a channel with.
+  Environment-only rather than a flag, matching how `NTM_API_KEY` and
+  `NTM_BASE_URL` are already supplied. Control characters are stripped and the
+  value is capped before it reaches a header.
+- **`nowtempmail new --json` carries a `quota` block** —
+  `mailboxesRemainingToday`, `mailboxesPerDay`, `resetsAt` — when the response
+  reported one. Remaining daily quota was previously only in the human status
+  line on stderr, which is prose this package reserves the right to reword; a
+  script that needed the number had to match a regex against it. The block is
+  absent, not null, when the headers were missing — `quota: null` would read as
+  "no mailboxes left today".
+
 ## [0.1.2] - 2026-08-15
 
 Documentation only. No code change, no API change — but the corrections matter,
@@ -227,7 +250,8 @@ the surface area, and the boundaries, before you depend on it.
   file that trigger mail from the same sender within the same second can still
   match each other's. Disambiguate with `from` or `subject`.
 
-[Unreleased]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/nowtempmail/nowtempmail-node/releases/tag/v0.1.0

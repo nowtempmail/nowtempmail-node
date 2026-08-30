@@ -108,6 +108,15 @@ export async function run(options: RunOptions): Promise<number> {
   }
 
   const baseUrl = flagString(flags, "base-url") ?? readEnv(env, "NTM_BASE_URL");
+  // Environment-only, and deliberately not a flag: the callers are wrappers —
+  // the GitHub Action, a CI image, an internal harness — that already set
+  // NTM_API_KEY the same way, and none of them wants to thread another argv
+  // token through a shell. It is the only signal that can attribute a key to a
+  // distribution channel, since /v1 sees nothing else about who invoked us.
+  // `sanitiseHeaderValue` in client.ts strips anything a header cannot carry
+  // and caps the length, so an arbitrary value here is not a header-injection
+  // vector.
+  const userAgentSuffix = readEnv(env, "NTM_USER_AGENT_SUFFIX");
   const pollOverride = Number(readEnv(env, "NTM_POLL_INTERVAL_MS") ?? "");
   const pollIntervalMs =
     Number.isFinite(pollOverride) && pollOverride > 0 ? Math.round(pollOverride) : undefined;
@@ -119,6 +128,7 @@ export async function run(options: RunOptions): Promise<number> {
     client = new NowTempMail({
       apiKey,
       ...(baseUrl === undefined ? {} : { baseUrl }),
+      ...(userAgentSuffix === undefined ? {} : { userAgentSuffix }),
       // A rate limit is not a failure: the SDK is already waiting out the
       // window, so this is a status line and the command continues.
       onResponse: (event) => {
