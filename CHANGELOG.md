@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-08-30
+
+Development toolchain only. **No change to what this package ships** — the
+published code is byte-for-byte identical to 0.1.3, and this package has always
+had zero runtime dependencies, so none of the advisories below were ever
+reachable by anyone installing it.
+
+Released rather than batched because the advisories were open on a public
+repository, where "not exploitable for consumers" is not obvious to anyone
+reading the security tab.
+
+### Security
+
+- **vitest 2 → 4**, clearing one critical, one high and two moderate advisories
+  that reached the dev tree through vite and `@vitest/mocker`. The vitest config
+  here uses only stable options, so the two-major jump needed no migration; all
+  422 tests pass unchanged on it.
+- **esbuild pinned to `^0.28.2`** via `overrides`, clearing the last advisory.
+  `npm audit fix` could not reach it on its own: both tsup and vite resolved to
+  0.27.7, inside the affected `0.27.3 - 0.28.0` range, and neither had loosened
+  its own range yet. The advisory concerns esbuild's **development server**,
+  which nothing here runs — but an override was cheaper than explaining that in
+  every future audit.
+
 ## [0.1.3] - 2026-08-26
 
 Two additions the GitHub Action needs, both of which are useful to any wrapper
@@ -250,7 +274,8 @@ the surface area, and the boundaries, before you depend on it.
   file that trigger mail from the same sender within the same second can still
   match each other's. Disambiguate with `from` or `subject`.
 
-[Unreleased]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nowtempmail/nowtempmail-node/compare/v0.1.0...v0.1.1
